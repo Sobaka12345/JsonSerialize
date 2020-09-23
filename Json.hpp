@@ -6,19 +6,15 @@
 #include <memory>
 #include <queue>
 
-using namespace std;
-
-
-
 class JsonBase
 {
 protected:
     JsonBase* parent_;
-    queue<unique_ptr<JsonBase>> vals_;
-    ostream& stream_;
+    std::queue<std::unique_ptr<JsonBase>> vals_;
+    std::ostream& stream_;
     bool is_ended_ = false;
 
-    JsonBase(ostream& stream, JsonBase* parent = nullptr) :
+    JsonBase(std::ostream& stream, JsonBase* parent = nullptr) :
         parent_(parent),
         stream_(stream)
     {}
@@ -26,22 +22,22 @@ protected:
 
 public:
     virtual ~JsonBase() = default;
-    void PushValue(unique_ptr<JsonBase> val)
+    void PushValue(std::unique_ptr<JsonBase> val)
     {
         vals_.push(move(val));
     }
-    ostream& GetStream()
+    std::ostream& GetStream()
     {
         return stream_;
     }
 };
 
-class JsonValue : public JsonBase, public variant<monostate, string_view, bool, int64_t>
+class JsonValue : public JsonBase, public std::variant<std::monostate, std::string_view, bool, std::int64_t, double>
 {
 public:
-    JsonValue(ostream& stream, variant<monostate, string_view, bool, int64_t> val):
+    JsonValue(std::ostream& stream, std::variant<std::monostate, std::string_view, bool, int64_t, double> val):
         JsonBase(stream),
-        variant<monostate, string_view, bool, int64_t>(val)
+        std::variant<std::monostate, std::string_view, bool, int64_t, double>(val)
     {}
 
     ~JsonValue() override
@@ -51,13 +47,16 @@ public:
             stream_ << "null";
             break;
         case 1:
-            stream_ << quoted(get<1>(*this));
+            stream_ << quoted(std::get<1>(*this));
             break;
         case 2:
-            stream_ << boolalpha << get<2>(*this);
+            stream_ << std::boolalpha << std::get<2>(*this);
             break;
         case 3:
-            stream_ << get<3>(*this);
+            stream_ << std::get<3>(*this);
+            break;
+        case 4:
+            stream_ << std::get<4>(*this);
             break;
         }
     }
@@ -77,27 +76,33 @@ class JsonAdders
     }
 
 public:
-    auto& String(string_view str)
+    auto& String(std::string_view str)
     {
-        GetType().PushValue(make_unique<JsonValue>(GetType().GetStream(), str));
+        GetType().PushValue(std::make_unique<JsonValue>(GetType().GetStream(), str));
         return ReturnValue();
     }
 
     auto& Null()
     {
-        GetType().PushValue(make_unique<JsonValue>(GetType().GetStream(), monostate()));
+        GetType().PushValue(std::make_unique<JsonValue>(GetType().GetStream(), std::monostate()));
+        return ReturnValue();
+    }
+
+    auto& Double(double val)
+    {
+        GetType().PushValue(std::make_unique<JsonValue>(GetType().GetStream(), val));
         return ReturnValue();
     }
 
     auto& Number(int64_t val)
     {
-        GetType().PushValue(make_unique<JsonValue>(GetType().GetStream(), val));
+        GetType().PushValue(std::make_unique<JsonValue>(GetType().GetStream(), val));
         return ReturnValue();
     }
 
     auto& Boolean(bool val)
     {
-        GetType().PushValue(make_unique<JsonValue>(GetType().GetStream(), val));
+        GetType().PushValue(std::make_unique<JsonValue>(GetType().GetStream(), val));
         return ReturnValue();
     }
 };
@@ -110,7 +115,7 @@ class JsonArray: public JsonBase, public JsonAdders<JsonArray<T>>
 {
 
 public:
-    JsonArray(ostream& stream, JsonBase* parent = nullptr) :
+    JsonArray(std::ostream& stream, JsonBase* parent = nullptr) :
         JsonBase(stream, parent)
     {}
 
@@ -121,13 +126,13 @@ public:
 
     JsonArray<JsonArray<T>>& BeginArray()
     {
-        vals_.push(make_unique<JsonArray<JsonArray<T>>>(stream_, this));
+        vals_.push(std::make_unique<JsonArray<JsonArray<T>>>(stream_, this));
         return static_cast<JsonArray<JsonArray<T>>&>(*vals_.back());
     }
 
     JsonObject<JsonArray<T>>& BeginObject()
     {
-        vals_.push(make_unique<JsonObject<JsonArray<T>>>(stream_, this));
+        vals_.push(std::make_unique<JsonObject<JsonArray<T>>>(stream_, this));
         return static_cast<JsonObject<JsonArray<T>>&>(*vals_.back());
     }
 
@@ -153,10 +158,10 @@ public:
 template <typename T>
 class JsonKey: public JsonBase, public JsonAdders<JsonKey<T>>
 {
-    string_view name_;
+    std::string_view name_;
 
 public:
-    JsonKey(ostream& stream, string_view name, JsonBase* parent = nullptr) :
+    JsonKey(std::ostream& stream, std::string_view name, JsonBase* parent = nullptr) :
         JsonBase(stream, parent),
         name_(name)
     {}
@@ -168,13 +173,13 @@ public:
 
     JsonArray<T>& BeginArray()
     {
-        vals_.push(make_unique<JsonArray<T>>(stream_, parent_));
+        vals_.push(std::make_unique<JsonArray<T>>(stream_, parent_));
         return static_cast<JsonArray<T>&>(*vals_.back());
     }
 
     JsonObject<T> &BeginObject()
     {
-        vals_.push(make_unique<JsonObject<T>>(stream_, parent_));
+        vals_.push(std::make_unique<JsonObject<T>>(stream_, parent_));
         return static_cast<JsonObject<T>&>(*vals_.back());
     }
 
@@ -191,7 +196,7 @@ template <typename T>
 class JsonObject: public JsonBase
 {
 public:
-    JsonObject(ostream& stream, JsonBase* parent = nullptr) :
+    JsonObject(std::ostream& stream, JsonBase* parent = nullptr) :
         JsonBase(stream, parent)
     {}
 
@@ -200,9 +205,9 @@ public:
         return *this;
     }
 
-    JsonKey<JsonObject<T>>& Key(string_view name)
+    JsonKey<JsonObject<T>>& Key(std::string_view name)
     {
-        vals_.push(make_unique<JsonKey<JsonObject<T>>>(this->stream_, name, this));
+        vals_.push(std::make_unique<JsonKey<JsonObject<T>>>(this->stream_, name, this));
         return static_cast<JsonKey<JsonObject<T>>&>(*vals_.back());
     }
 
@@ -226,17 +231,17 @@ public:
 };
 
 
-void PrintJsonString(ostream& stream, string_view str)
+void PrintJsonString(std::ostream& stream, std::string_view str)
 {
     stream << quoted(str);
 }
 
-JsonArray<JsonBase> PrintJsonArray(ostream& stream)
+JsonArray<JsonBase> PrintJsonArray(std::ostream& stream)
 {
     return JsonArray<JsonBase>(stream);
 }
 
-JsonObject<JsonBase> PrintJsonObject(ostream& stream)
+JsonObject<JsonBase> PrintJsonObject(std::ostream& stream)
 {
     return JsonObject<JsonBase>(stream);
 }

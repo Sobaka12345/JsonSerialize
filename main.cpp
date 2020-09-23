@@ -24,6 +24,7 @@ int main()
             .Null()
             .Number(1)
             .BeginObject()
-            .Key("biba");
+            .Key("biba")
+            .Double(2.5);
     return 0;
 }
