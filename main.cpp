@@ -22,7 +22,7 @@ int main()
             .String("hohoho")
             .Boolean(false)
             .Null()
-            .Number(1)
+            .Integer(1)
             .BeginObject()
             .Key("biba")
             .Double(2.5);

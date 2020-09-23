@@ -94,7 +94,7 @@ public:
         return ReturnValue();
     }
 
-    auto& Number(int64_t val)
+    auto& Integer(int64_t val)
     {
         GetType().PushValue(std::make_unique<JsonValue>(GetType().GetStream(), val));
         return ReturnValue();
